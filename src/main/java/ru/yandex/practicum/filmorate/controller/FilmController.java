@@ -15,7 +15,7 @@ import java.util.*;
 public class FilmController {
     private final Map<Long, Film> films = new HashMap<>();
 
-    public final static LocalDate FIRST_FILM_DATE = LocalDate.of(1895, 12, 28);
+    public static final LocalDate FIRST_FILM_DATE = LocalDate.of(1895, 12, 28);
 
     @GetMapping
     public Collection<Film> getAllFilms() {
