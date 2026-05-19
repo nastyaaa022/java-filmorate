@@ -110,7 +110,7 @@ public class UserControllerTest {
                 () -> controller.addUser(newUser)
         );
 
-        assertTrue(exception.getMessage().contains("Email не может быть пустым при "));
+        assertTrue(exception.getMessage().contains("Email не может быть null или пустым при "));
     }
 
     @Test
@@ -127,7 +127,7 @@ public class UserControllerTest {
                 () -> controller.addUser(newUser)
         );
 
-        assertTrue(exception.getMessage().contains("Email не может быть пустым после обрезки пробелов при "));
+        assertTrue(exception.getMessage().contains("Email не может быть null или пустым при "));
     }
 
     @Test
@@ -144,7 +144,7 @@ public class UserControllerTest {
                 () -> controller.addUser(newUser)
         );
 
-        assertTrue(exception.getMessage().contains("Email не может быть пустым после обрезки пробелов при "));
+        assertTrue(exception.getMessage().contains("Email не может быть null или пустым при "));
     }
 
     @Test
@@ -298,6 +298,50 @@ public class UserControllerTest {
     }
 
     // тесты обновления пользователя
+
+    @Test
+    void updateUser_EmptyNameWhenNameWasSameAsLogin_ShouldSetNameToLogin() {
+        User originalUser = User.builder()
+                .name(null)
+                .login("ivan")
+                .email("ivan@mail.com")
+                .birthday(LocalDate.of(2000, 1, 1))
+                .build();
+
+        User addedUser = controller.addUser(originalUser);
+
+        User updateRequest = User.builder()
+                .id(addedUser.getId())
+                .name("")
+                .build();
+
+        User updatedUser = controller.userUpdate(updateRequest);
+
+        assertEquals("ivan", updatedUser.getName());
+        assertEquals("ivan", updatedUser.getLogin());
+    }
+
+    @Test
+    void updateUser_EmptyNameWhenNameWasDifferentFromLogin_ShouldKeepOldName() {
+        User originalUser = User.builder()
+                .name("Иван Иванов")
+                .login("ivan")
+                .email("ivan@mail.com")
+                .birthday(LocalDate.of(2000, 1, 1))
+                .build();
+
+        User addedUser = controller.addUser(originalUser);
+
+        User updateRequest = User.builder()
+                .id(addedUser.getId())
+                .name("")
+                .build();
+
+        User updatedUser = controller.userUpdate(updateRequest);
+
+        assertEquals("Иван Иванов", updatedUser.getName());
+        assertEquals("ivan", updatedUser.getLogin());
+    }
 
     @Test
     void updateUser_FullUpdate_ShouldUpdateAllFields() {

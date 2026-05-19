@@ -19,6 +19,8 @@ public class UserController {
 
     @GetMapping
     public Collection<User> allUsers() {
+        Collection<User> allUsers = users.values();
+        log.info("Запрос списка пользователей. Найдено пользователей: {}", allUsers.size());
         return users.values();
     }
 
@@ -58,71 +60,87 @@ public class UserController {
 
         User oldUser = users.get(newUser.getId());
 
-        // Сохранение старых значений для проверки на изменения полей
         String oldName = oldUser.getName();
         String oldEmail = oldUser.getEmail();
         LocalDate oldBirthday = oldUser.getBirthday();
         String oldLogin = oldUser.getLogin();
 
+        updateUserLogin(newUser, oldUser);
+        String validatedEmail = updateUserEmail(newUser, oldUser);
+        updateUserName(newUser, oldUser, oldName, oldLogin);
+        updateUserBirthday(newUser, oldUser);
+
+        String updatedFieldsStr = getUpdatedFieldsString(newUser, validatedEmail,
+                oldName, oldEmail, oldBirthday, oldLogin);
+
+        log.info("Пользователь '{}' успешно изменен, ID: {}. Обновлены поля: {}",
+                oldUser.getName(), newUser.getId(), updatedFieldsStr);
+
+        return oldUser;
+    }
+
+//методы для обновления данных
+    private void updateUserName(User newUser, User oldUser, String oldName, String oldLogin) {
+        if (newUser.getName() != null && !newUser.getName().isBlank()) {
+            oldUser.setName(newUser.getName());
+        } else {
+            boolean wasNameMissing = oldName == null ||
+                    oldName.isBlank() ||
+                    oldName.equals(oldLogin);
+
+            if (wasNameMissing) {
+                oldUser.setName(oldUser.getLogin());
+            } else {
+                oldUser.setName(oldName);
+            }
+        }
+    }
+
+    private void updateUserLogin(User newUser, User oldUser) {
         if (newUser.getLogin() != null) {
             validateLogin(newUser.getLogin(), newUser.getId(), "обновлении");
             checkLoginUniqueness(newUser.getLogin(), newUser.getId());
             oldUser.setLogin(newUser.getLogin());
         }
+    }
 
+    private String updateUserEmail(User newUser, User oldUser) {
         String validatedEmail = null;
         if (newUser.getEmail() != null) {
             validatedEmail = getValidatedEmail(newUser, newUser.getId(), "обновлении");
             checkEmailUniqueness(validatedEmail, newUser.getId());
             oldUser.setEmail(validatedEmail);
         }
+        return validatedEmail;
+    }
 
-        if (newUser.getName() != null) {
-            oldUser.setName(newUser.getName());
-        }
-
+    private void updateUserBirthday(User newUser, User oldUser) {
         if (newUser.getBirthday() != null) {
             validateBirthday(newUser.getBirthday(), newUser.getId(), "обновлении");
             oldUser.setBirthday(newUser.getBirthday());
         }
-
-        String updatedFieldsStr = getUpdatedFieldsString(newUser, validatedEmail, oldName, oldEmail, oldBirthday, oldLogin);
-        log.info("Пользователь '{}' успешно изменен, ID: {}. Обновлены поля: {}",
-                newUser.getName(), newUser.getId(), updatedFieldsStr);
-
-        return oldUser;
     }
 
 //Методы валидации
-
     private void validateLogin(String login, Long userId, String context) {
         if (login == null || login.isBlank() || login.contains(" ")) {
             log.warn(
                     "Логин: {} невалиден при {} пользователя с ID {}: он пустой, состоит только из пробелов или содержит пробелы.",
-                    login, context, userId);
+                    login, context, userId
+            );
             throw new ValidationException(
                     "Логин не может быть пустым, состоять только из пробелов или содержать пробелы при " + context);
         }
     }
 
     private void validateEmail(String email, Long userId, String operation) {
-        if (email == null) {
+        if (email == null || email.trim().isEmpty()) {
             log.warn(
-                    "Ошибка валидации email при {} пользователя с ID {}: email имеет значение null",
+                    "Ошибка валидации email при {} пользователя с ID {}: не может быть null или пустым",
                     operation,
                     userId
             );
-            throw new ValidationException("Email не может быть пустым при " + operation);
-        }
-
-        email = email.trim();
-        if (email.isEmpty()) {
-            log.warn(
-                    "Ошибка валидации email при {} пользователя с ID {}: после обрезки пробелов email стал пустым",
-                    operation,
-                    userId
-            );
-            throw new ValidationException("Email не может быть пустым после обрезки пробелов при " + operation);
+            throw new ValidationException("Email не может быть null или пустым при " + operation);
         }
 
         if (!email.contains("@")) {
@@ -136,14 +154,17 @@ public class UserController {
     }
 
     private void validateBirthday(LocalDate birthday, Long userId, String context) {
-        LocalDate now = LocalDate.now();
-        if (birthday.isAfter(now)) {
-            log.warn(
-                    "Дата рождения: {} невалидна, при {} пользователя с ID {}: Она не может быть в будущем.",
-                    birthday, context, userId);
-            throw new ValidationException(
-                    "Дата рождения не может быть в будущем при " + context
-            );
+        if (birthday != null) {
+            LocalDate now = LocalDate.now();
+            if (birthday.isAfter(now)) {
+                log.warn(
+                        "Дата рождения: {} невалидна, при {} пользователя с ID {}: Она не может быть в будущем.",
+                        birthday, context, userId
+                );
+                throw new ValidationException(
+                        "Дата рождения не может быть в будущем при " + context
+                );
+            }
         }
     }
 
@@ -184,7 +205,6 @@ public class UserController {
     }
 
 //Вспомогательные методы
-
     private String getValidatedEmail(User user, Long userId, String operation) {
         String email = user.getEmail();
         validateEmail(email, userId, operation);

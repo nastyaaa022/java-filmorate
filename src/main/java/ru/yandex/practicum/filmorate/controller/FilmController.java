@@ -15,8 +15,12 @@ import java.util.*;
 public class FilmController {
     private final Map<Long, Film> films = new HashMap<>();
 
+    public final static LocalDate FIRST_FILM_DATE = LocalDate.of(1895, 12, 28);
+
     @GetMapping
     public Collection<Film> getAllFilms() {
+        Collection<Film> allFilms = films.values();
+        log.info("Запрос списка фильмов. Найдено фильмов: {}", allFilms.size());
         return films.values();
     }
 
@@ -48,7 +52,6 @@ public class FilmController {
 
         Film oldFilm = films.get(newFilm.getId());
 
-        // Сохранение старых значений для проверки на изменения полей
         String oldName = oldFilm.getName();
         String oldDescription = oldFilm.getDescription();
         LocalDate oldReleaseDate = oldFilm.getReleaseDate();
@@ -75,7 +78,6 @@ public class FilmController {
             oldFilm.setDuration(newFilm.getDuration());
         }
 
-        //для лог о измененных полях
         String updatedFields = getUpdatedFieldsString(newFilm, oldName, oldDescription,
                 oldReleaseDate, oldDuration);
 
@@ -126,18 +128,16 @@ public class FilmController {
     }
 
     private void validateDescription(String description, Long filmId, String context) {
-        if (description == null || description.isBlank()) {
-            log.warn("Ошибка описания фильма {}, при {} фильма c ID {}: описание фильма не может быть пустым.",
-                    description, context, filmId);
-            throw new ValidationException("описание фильма не может быть пустым");
-        }
-
         int maxDescription = 200;
-        int descriptionLength = description.length();
-        if (descriptionLength > maxDescription) {
-            log.warn("Ошибка размера описания при {} фильма с ID {}: длина: {} символов. Максимально допустимая длина: {}",
-                    context, filmId, descriptionLength, maxDescription);
-            throw new ValidationException("Длина описания не должна превышать 200 символов");
+        if (description != null) {
+            int descriptionLength = description.length();
+            if (descriptionLength > maxDescription) {
+                log.warn(
+                        "Ошибка размера описания при {} фильма с ID {}: длина: {} символов. Максимально допустимая длина: {}",
+                        context, filmId, descriptionLength, maxDescription
+                );
+                throw new ValidationException("Длина описания не должна превышать 200 символов");
+            }
         }
     }
 
@@ -147,10 +147,11 @@ public class FilmController {
                     releaseDate, context, filmId);
             throw new ValidationException("дата релиза фильма не может быть пустой");
         } else {
-            LocalDate minDate = LocalDate.of(1895, 12, 28);
-            if (releaseDate.isBefore(minDate)) {
-                log.warn("Ошибка валидации Даты {} при {} фильма с ID {}: дата релиза не должна быть раньше 28 декабря 1895 года",
-                        releaseDate, context, filmId);
+            if (releaseDate.isBefore(FIRST_FILM_DATE)) {
+                log.warn(
+                        "Ошибка валидации Даты {} при {} фильма с ID {}: дата релиза не должна быть раньше 28 декабря 1895 года",
+                        releaseDate, context, filmId
+                );
                 throw new ValidationException("дата релиза не должна быть раньше 28 декабря 1895 года");
             }
         }
@@ -158,8 +159,10 @@ public class FilmController {
 
     private void validateDuration(Integer duration, Long filmId, String context) {
         if (duration == null || duration <= 0) {
-            log.warn("Ошибка продолжительности {}: при {} фильма с ID {}: продолжительность фильма должна быть положительным числом",
-                    duration, context, filmId);
+            log.warn(
+                    "Ошибка продолжительности {}: при {} фильма с ID {}: продолжительность фильма должна быть положительным числом",
+                    duration, context, filmId
+            );
             throw new ValidationException("продолжительность фильма должна быть положительным числом");
         }
     }

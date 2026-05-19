@@ -474,42 +474,6 @@ class FilmControllerTest {
         assertEquals("New description", updatedFilm.getDescription());
     }
 
-    // тест на валидность поля description
-
-    @Test
-    void addFilm_EmptyDescription_ShouldThrowValidationException() {
-        Film film = Film.builder()
-                .name("Test Film")
-                .description(" ")
-                .releaseDate(LocalDate.of(2000, 1, 1))
-                .duration(100)
-                .build();
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> controller.addFilm(film)
-        );
-
-        assertTrue(exception.getMessage().contains("описание фильма не может быть пустым"));
-    }
-
-    @Test
-    void addFilm_NullDescription_ShouldThrowValidationException() {
-        Film film = Film.builder()
-                .name("Test Film")
-                .description(null)
-                .releaseDate(LocalDate.of(2000, 1, 1))
-                .duration(100)
-                .build();
-
-        ValidationException exception = assertThrows(
-                ValidationException.class,
-                () -> controller.addFilm(film)
-        );
-
-        assertTrue(exception.getMessage().contains("описание фильма не может быть пустым"));
-    }
-
    //тест на генерацию ID
 
     @Test
