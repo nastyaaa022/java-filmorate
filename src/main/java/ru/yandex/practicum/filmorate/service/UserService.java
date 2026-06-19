@@ -30,7 +30,7 @@ public class UserService {
     }
 
     public User getUserById(Long userId) {
-       User user = userStorage.findById(userId)
+        User user = userStorage.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id: " + userId + " не найден."));
         log.info("Запрос пользователя по ID: {}. Найден пользователь '{}'", userId, user.getName());
         return user;
@@ -56,7 +56,7 @@ public class UserService {
         return savedUser;
     }
 
-    public User userUpdate( User newUser) {
+    public User userUpdate(User newUser) {
         if (newUser.getId() == null) {
             log.warn("Не указан Id пользователя.");
             throw new ValidationException("Id должен быть указан");
@@ -117,10 +117,6 @@ public class UserService {
 
         User user = getUserById(userId);
         User friend = getUserById(friendId);
-
-        if (!user.getFriends().contains(friendId)) {
-            throw new ValidationException("Пользователь не является другом");
-        }
 
         user.getFriends().remove(friendId);
         friend.getFriends().remove(userId);
@@ -243,23 +239,6 @@ public class UserService {
         }
     }
 
-//    private void checkEmailUniqueness(String email, Long currentId) {
-//        Optional<User> existingUserOpt = userStorage.findByEmail(email);
-//
-//        if (existingUserOpt.isPresent()) {
-//            User existingUser = existingUserOpt.get();
-//            // Исключаем текущего пользователя, если ID передан
-//            if (!currentId.equals(existingUser.getId())) {
-//                log.warn(
-//                        "Email: {} уже занят пользователем с ID {}. Попытка присвоения пользователю с ID {}.",
-//                        email,
-//                        existingUser.getId(),
-//                        currentId
-//                );
-//                throw new DuplicatedDataException("Этот имейл уже используется");
-//            }
-//        }
-//    }
     private void checkEmailUniqueness(String email, Long currentId) {
         Optional<User> existingUserOpt = userStorage.findByEmail(email);
 
@@ -277,24 +256,6 @@ public class UserService {
             }
         }
     }
-
-
-//    private void checkLoginUniqueness(String login, Long currentId) {
-//        Optional<User> existingUserOpt = userStorage.findByLogin(login);
-//
-//        if (existingUserOpt.isPresent()) {
-//            User existingUser = existingUserOpt.get();
-//            if (!currentId.equals(existingUser.getId())) {
-//                log.warn(
-//                        "Логин: {} уже занят пользователем с ID {}. Попытка присвоения пользователю с ID {}.",
-//                        login,
-//                        existingUser.getId(),
-//                        currentId
-//                );
-//                throw new DuplicatedDataException("Этот логин уже используется");
-//            }
-//        }
-//    }
 
     private void checkLoginUniqueness(String login, Long currentId) {
         Optional<User> existingUserOpt = userStorage.findByLogin(login);

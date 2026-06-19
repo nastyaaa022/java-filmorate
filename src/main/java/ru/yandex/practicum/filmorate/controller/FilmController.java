@@ -38,18 +38,21 @@ public class FilmController {
     }
 
     @PutMapping("/{id}/like/{userId}")
-    public void likeFilm(@PathVariable("id") Long filmId, @PathVariable("userId") Long userId) {
+    public void likeFilm(
+            @PathVariable("id") Long filmId,
+            @PathVariable("userId") Long userId) {
         filmService.likeFilm(filmId, userId);
     }
 
     @DeleteMapping("/{id}/like/{userId}")
-    public void unlikeFilm(@PathVariable("id") Long filmId, @PathVariable("userId") Long userId) {
+    public void unlikeFilm(
+            @PathVariable("id") Long filmId,
+            @PathVariable("userId") Long userId) {
         filmService.unlikeFilm(filmId, userId);
     }
 
     @GetMapping("/popular")
-    public Collection<Film> getTop10PopularFilms(
-            @RequestParam(defaultValue = "10") int count) {
+    public Collection<Film> getTop10PopularFilms(@RequestParam(defaultValue = "10") int count) {
         return filmService.getTop10PopularFilms(count);
     }
 }

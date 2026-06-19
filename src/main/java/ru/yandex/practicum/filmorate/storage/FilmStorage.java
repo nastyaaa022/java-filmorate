@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface FilmStorage {
-    Film save(Film film);                    // добавление/обновление объекта
-    void delete(long id);                   // удаление по ID
-    Optional<Film> findById(long id);       // поиск по ID
-    List<Film> getAll();                    // получение всех объектов
-    Film update(Film film);                 // модификация объекта
+    Film save(Film film);
+    void delete(long id);
+    Optional<Film> findById(long id);
+    List<Film> getAll();
+    Film update(Film film);
 }

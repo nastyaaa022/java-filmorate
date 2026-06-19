@@ -73,7 +73,6 @@ public class FilmService {
         LocalDate oldReleaseDate = oldFilm.getReleaseDate();
         Integer oldDuration = oldFilm.getDuration();
 
-        // Обновление полей
         if (newFilm.getName() != null) {
             validateName(newFilm.getName(), newFilm.getId(), "обновлении");
             oldFilm.setName(newFilm.getName());

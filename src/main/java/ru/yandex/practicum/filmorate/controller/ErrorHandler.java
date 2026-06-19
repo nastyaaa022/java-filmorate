@@ -18,7 +18,7 @@ public class ErrorHandler {
     }
 
     @ExceptionHandler(ValidationException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)//400
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleValidationException(final ValidationException e) {
         return new ErrorResponse(e.getMessage());
     }
@@ -29,15 +29,9 @@ public class ErrorHandler {
         return new ErrorResponse(e.getMessage());
     }
 
-    @ExceptionHandler(Exception.class) // Ловит все остальные исключения
+    @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handle(final Exception e) {
         return new ErrorResponse("Произошла внутренняя ошибка сервера.");
     }
-
-//    @ExceptionHandler
-//    @ResponseStatus(HttpStatus.) //500 на остальное
-//    public ErrorResponse handle(final e) {
-//        return new ErrorResponse(e.getMessage());
-//    }
 }

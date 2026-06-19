@@ -31,7 +31,6 @@ public class InMemoryFilmStorage implements FilmStorage {
         films.remove(id);
     }
 
-
     @Override
     public Optional<Film> findById(long id) {
         return Optional.ofNullable(films.get(id));
