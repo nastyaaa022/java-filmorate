@@ -7,6 +7,11 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -19,14 +24,19 @@ class FilmControllerTest {
 
     private FilmController controller;
     private FilmService service;
+    private FilmStorage storage;
+
+    private UserStorage storageUser;
 
     @BeforeEach
     void setUp() {
-        controller = new FilmController(service);//тут исправляла
+        storage = new InMemoryFilmStorage();
+        storageUser = new InMemoryUserStorage();
+        service = new FilmService(storage, storageUser);
+        controller = new FilmController(service);
     }
 
     //позитивные тесты
-
     @Test
     void addFilm_ValidData_ShouldAddSuccessfully() {
         Film film = Film.builder()

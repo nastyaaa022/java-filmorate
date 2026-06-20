@@ -65,7 +65,7 @@ public class UserService {
         Optional<User> optionalUser = userStorage.findById(newUser.getId());
         if (!optionalUser.isPresent()) {
             log.warn("Пользователь с id {} не найден. Запрос на обновление отклонён.", newUser.getId());
-            throw new NotFoundException("Пользователь с id = " + newUser.getId() + " не найден");
+            throw new NotFoundException("Пользователь с id: " + newUser.getId() + " не найден");
         }
         User oldUser = optionalUser.get();
 
@@ -244,8 +244,7 @@ public class UserService {
 
         if (existingUserOpt.isPresent()) {
             User existingUser = existingUserOpt.get();
-            // Исключаем текущего пользователя, если ID передан
-            if (currentId != null && !currentId.equals(existingUser.getId())) {
+            if (currentId == null || !currentId.equals(existingUser.getId())) {
                 log.warn(
                         "Email: {} уже занят пользователем с ID {}. Попытка присвоения пользователю с ID {}.",
                         email,
@@ -262,7 +261,7 @@ public class UserService {
 
         if (existingUserOpt.isPresent()) {
             User existingUser = existingUserOpt.get();
-            if (currentId != null && !currentId.equals(existingUser.getId())) {
+            if (currentId == null || !currentId.equals(existingUser.getId())) {
                 log.warn(
                         "Логин: {} уже занят пользователем с ID {}. Попытка присвоения пользователю с ID {}.",
                         login,
