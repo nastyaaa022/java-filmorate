@@ -6,6 +6,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.storage.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -17,14 +22,20 @@ import static org.junit.jupiter.api.Assertions.*;
 class FilmControllerTest {
 
     private FilmController controller;
+    private FilmService service;
+    private FilmStorage storage;
+
+    private UserStorage storageUser;
 
     @BeforeEach
     void setUp() {
-        controller = new FilmController();
+        storage = new InMemoryFilmStorage();
+        storageUser = new InMemoryUserStorage();
+        service = new FilmService(storage, storageUser);
+        controller = new FilmController(service);
     }
 
     //позитивные тесты
-
     @Test
     void addFilm_ValidData_ShouldAddSuccessfully() {
         Film film = Film.builder()
@@ -300,7 +311,7 @@ class FilmControllerTest {
                 () -> controller.updateFilm(film)
         );
 
-        assertTrue(exception.getMessage().contains("Фильм с id = 999 не найден"));
+        assertTrue(exception.getMessage().contains("Фильм с id: 999 не найден"));
     }
 
     @Test
