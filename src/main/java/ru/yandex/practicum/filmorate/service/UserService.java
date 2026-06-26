@@ -62,12 +62,7 @@ public class UserService {
             throw new ValidationException("Id должен быть указан");
         }
 
-        Optional<User> optionalUser = userStorage.findById(newUser.getId());
-        if (!optionalUser.isPresent()) {
-            log.warn("Пользователь с id {} не найден. Запрос на обновление отклонён.", newUser.getId());
-            throw new NotFoundException("Пользователь с id: " + newUser.getId() + " не найден");
-        }
-        User oldUser = optionalUser.get();
+        User oldUser = getUserById(newUser.getId());
 
         String oldName = oldUser.getName();
         String oldEmail = oldUser.getEmail();

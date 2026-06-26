@@ -13,13 +13,19 @@ public class InMemoryUserStorage implements UserStorage {
 
     @Override
     public User save(User user) {
-        if (user.getId() == null) {
-            user.setId(nextId++);
-            users.put(user.getId(), user);
-        } else {
-            users.put(user.getId(), user);
-        }
+        user.setId(assignId(user.getId()));
+        users.put(user.getId(), user);
         return user;
+    }
+
+    private long assignId(Long id) {
+        if (id == null) {
+            return nextId++;
+        }
+        if (id >= nextId) {
+            nextId = id + 1;
+        }
+        return id;
     }
 
     @Override
@@ -42,9 +48,6 @@ public class InMemoryUserStorage implements UserStorage {
 
     @Override
     public User update(User user) {
-        if (!users.containsKey(user.getId())) {
-            throw new NotFoundException("Пользователь с ID " + user.getId() + " не найден");
-        }
         users.put(user.getId(), user);
         return user;
     }

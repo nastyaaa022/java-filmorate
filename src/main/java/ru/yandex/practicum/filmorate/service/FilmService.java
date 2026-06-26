@@ -6,12 +6,12 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class FilmService {
@@ -37,8 +37,8 @@ public class FilmService {
     }
 
     public Film getFilmById(Long filmId) {
-       Film film = filmStorage.findById(filmId)
-                .orElseThrow(() -> new NotFoundException("Фильм с id: " + filmId + " не найден."));
+        Film film = getFilmOrThrow(filmId);
+
         log.info("Запрос фильма по ID: {}. Найден фильм '{}'", filmId, film.getName());
         return film;
     }
@@ -61,12 +61,7 @@ public class FilmService {
             throw new ValidationException("Id должен быть указан");
         }
 
-        Optional<Film> optionalFilm = filmStorage.findById(newFilm.getId());
-        if (!optionalFilm.isPresent()) {
-            log.warn("Фильм с id {} не найден. Запрос на обновление отклонён.", newFilm.getId());
-            throw new NotFoundException("Фильм с id = " + newFilm.getId() + " не найден");
-        }
-        Film oldFilm = optionalFilm.get();
+        Film oldFilm = getFilmOrThrow(newFilm.getId());
 
         String oldName = oldFilm.getName();
         String oldDescription = oldFilm.getDescription();
@@ -105,11 +100,8 @@ public class FilmService {
     }
 
     public void likeFilm(Long filmId, Long userId) {
-        Film film = filmStorage.findById(filmId)
-                .orElseThrow(() -> new NotFoundException("Фильм не найден"));
-
-        userStorage.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Пользователь с id = " + userId + " не найден"));
+        Film film = getFilmOrThrow(filmId);
+        User user = getUserOrThrow(userId);
 
         if (film.getLikedByUsers().contains(userId)) {
             throw new ValidationException("Пользователь уже поставил лайк этому фильму");
@@ -122,11 +114,8 @@ public class FilmService {
     }
 
     public void unlikeFilm(Long filmId, Long userId) {
-        Film film = filmStorage.findById(filmId)
-                .orElseThrow(() -> new NotFoundException("Фильм не найден"));
-
-        userStorage.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Пользователь с id = " + userId + " не найден"));
+        Film film = getFilmOrThrow(filmId);
+        User user = getUserOrThrow(userId);
 
         if (!film.getLikedByUsers().contains(userId)) {
             throw new ValidationException("Пользователь не поставил лайк этому фильму");
@@ -139,16 +128,26 @@ public class FilmService {
     }
 
     public Collection<Film> getTop10PopularFilms(int count) {
-        log.info("Запрос топ-{} популярных фильмов", count);
+        if (count <= 0) {
+            log.warn("Ошибка: запрос топ-{} популярных фильмов. Количество должно быть положительным.", count);
+            throw new ValidationException("Количество фильмов должно быть положительным числом");
+        }
 
-        Collection<Film> allFilms = filmStorage.getAll();
-        return allFilms.stream()
-                .sorted((f1, f2) -> Long.compare(f2.getLikedByUsers().size(), f1.getLikedByUsers().size()))
-                .limit(count)
-                .collect(Collectors.toList());
+        log.info("Запрос топ-{} популярных фильмов", count);
+        return filmStorage.getTopPopular(count);
     }
 
     //вспомогательные методы
+    private Film getFilmOrThrow(Long filmId) {
+        return filmStorage.findById(filmId)
+                .orElseThrow(() -> new NotFoundException("Фильм с id: " + filmId + " не найден."));
+    }
+
+    private User getUserOrThrow(Long userId) {
+        return userStorage.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id = " + userId + " не найден"));
+    }
+
     private String getUpdatedFieldsString(Film newFilm, String oldName, String oldDescription,
                                           LocalDate oldReleaseDate, Integer oldDuration) {
         List<String> updatedFields = new ArrayList<>();

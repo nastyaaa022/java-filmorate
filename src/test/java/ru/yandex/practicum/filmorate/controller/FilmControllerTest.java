@@ -311,7 +311,7 @@ class FilmControllerTest {
                 () -> controller.updateFilm(film)
         );
 
-        assertTrue(exception.getMessage().contains("Фильм с id = 999 не найден"));
+        assertTrue(exception.getMessage().contains("Фильм с id: 999 не найден"));
     }
 
     @Test
