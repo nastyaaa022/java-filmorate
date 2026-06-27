@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.DuplicatedDataException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.FriendshipStatus;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
@@ -92,12 +93,15 @@ public class UserService {
         User user = getUserById(userId);
         User friend = getUserById(friendId);
 
-        if (user.getFriends().contains(friendId)) {
-            throw new ValidationException("Пользователь уже является другом");
-        }
+        user.getFriends().put(friendId, FriendshipStatus.UNCONFIRMED);
 
-        user.getFriends().add(friendId);
-        friend.getFriends().add(userId);
+        if (friend.getFriends().containsKey(userId)) {
+            friend.getFriends().put(userId, FriendshipStatus.CONFIRMED);
+            user.getFriends().put(friendId, FriendshipStatus.CONFIRMED);
+        } else {
+            user.getFriends().put(friendId, FriendshipStatus.UNCONFIRMED);
+            friend.getFriends().put(userId, FriendshipStatus.UNCONFIRMED);
+        }
 
         userStorage.save(user);
         userStorage.save(friend);
@@ -126,8 +130,9 @@ public class UserService {
         log.info("Запрос списка друзей пользователя {}", userId);
 
         User user = getUserById(userId);
-        return user.getFriends().stream()
-                .map(this::getUserById)
+        return user.getFriends().entrySet().stream()
+                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
+                .map(entry -> getUserById(entry.getKey()))
                 .collect(Collectors.toList());
     }
 
@@ -137,10 +142,19 @@ public class UserService {
         User user = getUserById(userId);
         User other = getUserById(otherId);
 
-        Set<Long> commonIds = new HashSet<>(user.getFriends());
-        commonIds.retainAll(other.getFriends());
+        Set<Long> userFriends = user.getFriends().entrySet().stream()
+                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
 
-        return commonIds.stream()
+        Set<Long> otherFriends = other.getFriends().entrySet().stream()
+                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+
+        userFriends.retainAll(otherFriends);
+
+        return userFriends.stream()
                 .map(this::getUserById)
                 .collect(Collectors.toList());
     }
