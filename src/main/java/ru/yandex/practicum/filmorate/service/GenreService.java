@@ -5,8 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.storage.GenreStorage;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
@@ -14,18 +14,22 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GenreService {
 
+    private final GenreStorage genreStorage;
+
     public List<Genre> getAllGenres() {
-        log.info("Запрос списка всех жанров");
-        return Arrays.asList(Genre.values());
+        log.info("Запрос списка всех жанров из базы данных");
+        return genreStorage.getAll();
     }
 
     public Genre getGenreById(int id) {
-        log.info("Запрос жанра с id: {}", id);
-        if (id < 1 || id > Genre.values().length) {
-            log.warn("Жанр с id: {} не найден", id);
-            throw new NotFoundException("Жанр с id " + id + " не найден.");
-        }
-        return Genre.values()[id - 1];
+        log.info("Запрос жанра по ID из базы данных: {}", id);
+
+        return genreStorage.findById(id)
+                .orElseThrow(() -> {
+                    log.warn("Жанр с id: {} не найден в базе данных", id);
+                    return new NotFoundException("Жанр с id " + id + " не найден.");
+                });
     }
 }
+
 

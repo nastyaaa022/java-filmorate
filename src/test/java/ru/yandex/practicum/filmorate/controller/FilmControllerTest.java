@@ -33,7 +33,7 @@ class FilmControllerTest {
     void setUp() {
         storage = new InMemoryFilmStorage();
         storageUser = new InMemoryUserStorage();
-        service = new FilmService(storage, storageUser);
+        //service = new FilmService(storage, storageUser);
         controller = new FilmController(service);
     }
 

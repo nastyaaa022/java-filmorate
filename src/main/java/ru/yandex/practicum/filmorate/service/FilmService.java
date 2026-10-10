@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
@@ -21,14 +22,22 @@ public class FilmService {
 
     private final UserStorage userStorage;
 
+    private final MpaService mpaService;
+
+    private final GenreService genreService;
+
     private static final Logger log = LoggerFactory.getLogger(FilmService.class);
 
     public static final LocalDate FIRST_FILM_DATE = LocalDate.of(1895, 12, 28);
 
     public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
-                       @Qualifier("userDbStorage") UserStorage userStorage) {
+                       @Qualifier("userDbStorage") UserStorage userStorage,
+                       MpaService mpaService,
+                       GenreService genreService) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
+        this.mpaService = mpaService;
+        this.genreService = genreService;
     }
 
     public Collection<Film> getAllFilms() {
@@ -53,9 +62,8 @@ public class FilmService {
         if (film.getMpa() == null) {
             throw new NotFoundException("Неверный ID рейтинга MPA");
         }
-        if (film.getGenres() != null && film.getGenres().contains(null)) {
-            throw new NotFoundException("Один из указанных ID жанров не существует");
-        }
+        checkMpaExistence(film.getMpa().getId());
+        checkGenresExistence(film.getGenres());
 
         Film savedFilm = filmStorage.save(film);
         log.info("Фильм '{}' успешно добавлен, ID: {}", film.getName(), film.getId());
@@ -75,32 +83,7 @@ public class FilmService {
         LocalDate oldReleaseDate = oldFilm.getReleaseDate();
         Integer oldDuration = oldFilm.getDuration();
 
-        if (newFilm.getName() != null) {
-            validateName(newFilm.getName(), newFilm.getId(), "обновлении");
-            oldFilm.setName(newFilm.getName());
-        }
-
-        if (newFilm.getDescription() != null) {
-            validateDescription(newFilm.getDescription(), newFilm.getId(), "обновлении");
-            oldFilm.setDescription(newFilm.getDescription());
-        }
-
-        if (newFilm.getReleaseDate() != null) {
-            validateReleaseDate(newFilm.getReleaseDate(), newFilm.getId(), "обновлении");
-            oldFilm.setReleaseDate(newFilm.getReleaseDate());
-        }
-
-        if (newFilm.getDuration() != null) {
-            validateDuration(newFilm.getDuration(), newFilm.getId(), "обновлении");
-            oldFilm.setDuration(newFilm.getDuration());
-        }
-
-        if (newFilm.getMpa() == null) {
-            throw new NotFoundException("Неверный ID рейтинга MPA");
-        }
-        if (newFilm.getGenres() != null && newFilm.getGenres().contains(null)) {
-            throw new NotFoundException("Один из указанных ID жанров не существует");
-        }
+        updateFilmFields(newFilm, oldFilm);
 
         filmStorage.update(oldFilm);
 
@@ -168,6 +151,55 @@ public class FilmService {
         }
 
         return updatedFields.isEmpty() ? "никакие поля не обновлены" : String.join(", ", updatedFields);
+    }
+
+    private void updateFilmFields(Film newFilm, Film oldFilm) {
+        if (newFilm.getName() != null) {
+            validateName(newFilm.getName(), newFilm.getId(), "обновлении");
+            oldFilm.setName(newFilm.getName());
+        }
+
+        if (newFilm.getDescription() != null) {
+            validateDescription(newFilm.getDescription(), newFilm.getId(), "обновлении");
+            oldFilm.setDescription(newFilm.getDescription());
+        }
+
+        if (newFilm.getReleaseDate() != null) {
+            validateReleaseDate(newFilm.getReleaseDate(), newFilm.getId(), "обновлении");
+            oldFilm.setReleaseDate(newFilm.getReleaseDate());
+        }
+
+        if (newFilm.getDuration() != null) {
+            validateDuration(newFilm.getDuration(), newFilm.getId(), "обновлении");
+            oldFilm.setDuration(newFilm.getDuration());
+        }
+
+        if (newFilm.getMpa() != null) {
+            checkMpaExistence(newFilm.getMpa().getId()); // Используем общий метод 👈
+            oldFilm.setMpa(newFilm.getMpa());
+        }
+
+        if (newFilm.getGenres() != null) {
+            checkGenresExistence(newFilm.getGenres()); // Используем общий метод 👈
+            oldFilm.setGenres(newFilm.getGenres());
+        } else {
+            oldFilm.setGenres(new java.util.LinkedHashSet<>());
+        }
+    }
+
+    private void checkMpaExistence(int mpaId) {
+        mpaService.getMpaById(mpaId);
+    }
+
+    private void checkGenresExistence(Collection<Genre> genres) {
+        if (genres != null) {
+            for (Genre genre : genres) {
+                if (genre == null) {
+                    throw new NotFoundException("Один из указанных жанров не существует.");
+                }
+                genreService.getGenreById(genre.getId());
+            }
+        }
     }
 
     //методы валидации

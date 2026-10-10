@@ -71,5 +71,4 @@ public class InMemoryFilmStorage implements FilmStorage {
     public void removeLike(long filmId, long userId) {
 
     }
-
 }

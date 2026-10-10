@@ -12,6 +12,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -97,29 +98,43 @@ public class UserDbStorage implements UserStorage {
         }
     }
 
+    @Override
     public void addFriend(long userId, long friendId) {
         String sql = "INSERT INTO friendships (id_user, id_friend, status) VALUES (?, ?, ?)";
         jdbcTemplate.update(sql, userId, friendId, "CONFIRMED");
     }
 
+    @Override
     public void removeFriend(long userId, long friendId) {
         String sql = "DELETE FROM friendships WHERE id_user = ? AND id_friend = ?";
         jdbcTemplate.update(sql, userId, friendId);
     }
 
-    public List<Long> getFriendsIds(long userId) {
-        String sql = "SELECT id_friend FROM friendships WHERE id_user = ?";
-        return jdbcTemplate.query(sql, (rs, rowNum) -> rs.getLong("id_friend"), userId);
+    @Override
+    public Collection<User> getFriends(long userId) {
+        String sql = "SELECT u.* FROM users u " +
+                "JOIN friendships f ON u.id = f.id_friend " +
+                "WHERE f.id_user = ?";
+        return jdbcTemplate.query(sql, this::mapRowToUser, userId);
     }
 
-    // Вспомогательный метод
+    @Override
+    public Collection<User> getCommonFriends(long userId, long otherId) {
+        String sql = "SELECT u.* FROM users u " +
+                "JOIN friendships f1 ON u.id = f1.id_friend " +
+                "JOIN friendships f2 ON u.id = f2.id_friend " +
+                "WHERE f1.id_user = ? AND f2.id_user = ?";
+        return jdbcTemplate.query(sql, this::mapRowToUser, userId, otherId);
+    }
+
     private User mapRowToUser(ResultSet rs, int rowNum) throws SQLException {
         return User.builder()
                 .id(rs.getLong("id"))
                 .name(rs.getString("name"))
                 .login(rs.getString("login"))
                 .email(rs.getString("email"))
-                .birthday(rs.getDate("birthday").toLocalDate())
+                .birthday(rs.getDate("birthday") != null ? rs.getDate("birthday").toLocalDate() : null)
+                .friends(new java.util.HashMap<>()) // Явно передаем пустую HashMap для билдера 👈
                 .build();
     }
 }

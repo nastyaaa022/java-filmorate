@@ -3,7 +3,9 @@ package ru.yandex.practicum.filmorate.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Getter;
 
+@Getter
 @JsonFormat(shape = JsonFormat.Shape.OBJECT)
 public enum Genre {
     COMEDY(1, "Комедия"),
@@ -21,14 +23,6 @@ public enum Genre {
         this.name = name;
     }
 
-    public int getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
     @JsonCreator
     public static Genre fromObject(@JsonProperty("id") int id) {
         if (id >= 1 && id <= Genre.values().length) {
@@ -37,4 +31,3 @@ public enum Genre {
         return null;
     }
 }
-

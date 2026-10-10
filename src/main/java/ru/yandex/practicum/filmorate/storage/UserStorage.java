@@ -25,6 +25,8 @@ public interface UserStorage {
 
     void removeFriend(long userId, long friendId);
 
-    java.util.List<Long> getFriendsIds(long userId);
+    java.util.Collection<User> getFriends(long userId);
+
+    java.util.Collection<User> getCommonFriends(long userId, long otherId);
 
 }
