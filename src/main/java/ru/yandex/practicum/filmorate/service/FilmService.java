@@ -2,6 +2,7 @@ package ru.yandex.practicum.filmorate.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -17,18 +18,18 @@ import java.util.*;
 public class FilmService {
 
     private final FilmStorage filmStorage;
-    private final UserStorage userStorage;
 
+    private final UserStorage userStorage;
 
     private static final Logger log = LoggerFactory.getLogger(FilmService.class);
 
     public static final LocalDate FIRST_FILM_DATE = LocalDate.of(1895, 12, 28);
 
-    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
+    public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
+                       @Qualifier("userDbStorage") UserStorage userStorage) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
     }
-
 
     public Collection<Film> getAllFilms() {
         Collection<Film> allFilms = filmStorage.getAll();
@@ -49,8 +50,14 @@ public class FilmService {
         validateReleaseDate(film.getReleaseDate(), null, "создании");
         validateDuration(film.getDuration(), null, "создании");
 
-        Film savedFilm = filmStorage.save(film);
+        if (film.getMpa() == null) {
+            throw new NotFoundException("Неверный ID рейтинга MPA");
+        }
+        if (film.getGenres() != null && film.getGenres().contains(null)) {
+            throw new NotFoundException("Один из указанных ID жанров не существует");
+        }
 
+        Film savedFilm = filmStorage.save(film);
         log.info("Фильм '{}' успешно добавлен, ID: {}", film.getName(), film.getId());
         return savedFilm;
     }
@@ -88,7 +95,14 @@ public class FilmService {
             oldFilm.setDuration(newFilm.getDuration());
         }
 
-        filmStorage.save(oldFilm);
+        if (newFilm.getMpa() == null) {
+            throw new NotFoundException("Неверный ID рейтинга MPA");
+        }
+        if (newFilm.getGenres() != null && newFilm.getGenres().contains(null)) {
+            throw new NotFoundException("Один из указанных ID жанров не существует");
+        }
+
+        filmStorage.update(oldFilm);
 
         String updatedFields = getUpdatedFieldsString(newFilm, oldName, oldDescription,
                 oldReleaseDate, oldDuration);
@@ -100,31 +114,19 @@ public class FilmService {
     }
 
     public void likeFilm(Long filmId, Long userId) {
-        Film film = getFilmOrThrow(filmId);
-        User user = getUserOrThrow(userId);
+        getFilmOrThrow(filmId);
+        getUserOrThrow(userId);
 
-        if (film.getLikedByUsers().contains(userId)) {
-            throw new ValidationException("Пользователь уже поставил лайк этому фильму");
-        }
-
-        film.getLikedByUsers().add(userId);
-        filmStorage.save(film);
-
-        log.info("Пользователь {} поставил лайк фильму '{}' (ID: {})", userId, film.getName(), filmId);
+        filmStorage.addLike(filmId, userId);
+        log.info("Пользователь {} поставил лайк фильму (ID: {})", userId, filmId);
     }
 
     public void unlikeFilm(Long filmId, Long userId) {
-        Film film = getFilmOrThrow(filmId);
-        User user = getUserOrThrow(userId);
+        getFilmOrThrow(filmId);
+        getUserOrThrow(userId);
 
-        if (!film.getLikedByUsers().contains(userId)) {
-            throw new ValidationException("Пользователь не поставил лайк этому фильму");
-        }
-
-        film.getLikedByUsers().remove(userId);
-        filmStorage.save(film);
-
-        log.info("Пользователь {} удалил лайк у фильма '{}' (ID: {})", userId, film.getName(), filmId);
+        filmStorage.removeLike(filmId, userId);
+        log.info("Пользователь {} удалил лайк у фильма (ID: {})", userId, filmId);
     }
 
     public Collection<Film> getTop10PopularFilms(int count) {
@@ -193,17 +195,16 @@ public class FilmService {
 
     private void validateReleaseDate(LocalDate releaseDate, Long filmId, String context) {
         if (releaseDate == null) {
-            log.warn("Ошибка валидации Даты {} при {} фильма с ID {}: дата релиза не может быть пустой",
-                    releaseDate, context, filmId);
+            log.warn("Ошибка валидации Даты при {} фильма с ID {}: дата релиза не может быть пустой", context, filmId);
             throw new ValidationException("дата релиза фильма не может быть пустой");
-        } else {
-            if (releaseDate.isBefore(FIRST_FILM_DATE)) {
-                log.warn(
-                        "Ошибка валидации Даты {} при {} фильма с ID {}: дата релиза не должна быть раньше 28 декабря 1895 года",
-                        releaseDate, context, filmId
-                );
-                throw new ValidationException("дата релиза не должна быть раньше 28 декабря 1895 года");
-            }
+        }
+
+        if (releaseDate.isBefore(FIRST_FILM_DATE)) {
+            log.warn(
+                    "Ошибка валидации Даты {} при {} фильма с ID {}: дата релиза не должна быть раньше 28 декабря 1895 года",
+                    releaseDate, context, filmId
+            );
+            throw new ValidationException("дата релиза не должна быть раньше 28 декабря 1895 года");
         }
     }
 
