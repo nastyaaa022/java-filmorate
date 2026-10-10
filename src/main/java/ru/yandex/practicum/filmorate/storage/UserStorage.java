@@ -20,4 +20,13 @@ public interface UserStorage {
     Optional<User> findByEmail(String email);
 
     Optional<User> findByLogin(String login);
+
+    void addFriend(long userId, long friendId);
+
+    void removeFriend(long userId, long friendId);
+
+    java.util.Collection<User> getFriends(long userId);
+
+    java.util.Collection<User> getCommonFriends(long userId, long otherId);
+
 }

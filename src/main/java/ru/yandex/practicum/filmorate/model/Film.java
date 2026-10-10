@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 @Data
@@ -21,4 +22,7 @@ public class Film {
     private Integer duration;
     @Builder.Default
     private Set<Long> likedByUsers = new HashSet<>();
+    @Builder.Default
+    private Set<Genre> genres = new LinkedHashSet<>();
+    private MpaRating mpa;
 }

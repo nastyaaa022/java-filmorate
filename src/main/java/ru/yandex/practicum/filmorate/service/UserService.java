@@ -2,8 +2,8 @@ package ru.yandex.practicum.filmorate.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.exception.DuplicatedDataException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
@@ -11,7 +11,6 @@ import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -19,7 +18,7 @@ public class UserService {
     private final UserStorage userStorage;
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
-    public UserService(UserStorage userStorage) {
+    public UserService(@Qualifier("userDbStorage") UserStorage userStorage) {
         this.userStorage = userStorage;
     }
 
@@ -51,7 +50,6 @@ public class UserService {
         }
 
         User savedUser = userStorage.save(user);
-
         log.info("Пользователь '{}' успешно добавлен, ID: {}", user.getName(), user.getId());
         return savedUser;
     }
@@ -74,7 +72,8 @@ public class UserService {
         updateUserName(newUser, oldUser, oldName, oldLogin);
         updateUserBirthday(newUser, oldUser);
 
-        userStorage.save(oldUser);
+        userStorage.update(oldUser);
+
         String updatedFieldsStr = getUpdatedFieldsString(newUser, validatedEmail,
                 oldName, oldEmail, oldBirthday, oldLogin);
 
@@ -85,75 +84,42 @@ public class UserService {
     }
 
     public void addFriend(Long userId, Long friendId) {
-        if (userId.equals(friendId)) {
-            throw new ValidationException("Нельзя добавить самого себя в друзья");
-        }
+        getUserById(userId);
+        getUserById(friendId);
 
-        User user = getUserById(userId);
-        User friend = getUserById(friendId);
-
-        if (user.getFriends().contains(friendId)) {
-            throw new ValidationException("Пользователь уже является другом");
-        }
-
-        user.getFriends().add(friendId);
-        friend.getFriends().add(userId);
-
-        userStorage.save(user);
-        userStorage.save(friend);
-
-        log.info("Пользователь {} и пользователь {} теперь друзья", userId, friendId);
+        userStorage.addFriend(userId, friendId);
+        log.info("Пользователь с ID {} добавил в друзья пользователя с ID {}", userId, friendId);
     }
 
     public void removeFriend(Long userId, Long friendId) {
-        if (userId.equals(friendId)) {
-            throw new ValidationException("Нельзя удалить самого себя из друзей");
-        }
+        getUserById(userId);
+        getUserById(friendId);
 
-        User user = getUserById(userId);
-        User friend = getUserById(friendId);
-
-        user.getFriends().remove(friendId);
-        friend.getFriends().remove(userId);
-
-        userStorage.save(user);
-        userStorage.save(friend);
-
-        log.info("Пользователь {} и пользователь {} больше не друзья", userId, friendId);
+        userStorage.removeFriend(userId, friendId);
+        log.info("Пользователь с ID {} удалил из друзей пользователя с ID {}", userId, friendId);
     }
 
-    public Collection<User> getUserFriends(Long userId) {
-        log.info("Запрос списка друзей пользователя {}", userId);
+    public Collection<User> getFriends(Long userId) {
+        getUserById(userId);
 
-        User user = getUserById(userId);
-        return user.getFriends().stream()
-                .map(this::getUserById)
-                .collect(Collectors.toList());
+        Collection<User> friends = userStorage.getFriends(userId);
+
+        log.info("Запрос списка друзей пользователя с ID: {}. Найдено друзей: {}", userId, friends.size());
+        return friends;
     }
 
     public Collection<User> getCommonFriends(Long userId, Long otherId) {
-        log.info("Запрос общих друзей пользователей {} и {}", userId, otherId);
-
-        User user = getUserById(userId);
-        User other = getUserById(otherId);
-
-        Set<Long> commonIds = new HashSet<>(user.getFriends());
-        commonIds.retainAll(other.getFriends());
-
-        return commonIds.stream()
-                .map(this::getUserById)
-                .collect(Collectors.toList());
+        getUserById(userId);
+        getUserById(otherId);
+        return userStorage.getCommonFriends(userId, otherId);
     }
 
-    //методы для обновления данных
+    //вспомогательные методы для обновления данных
     private void updateUserName(User newUser, User oldUser, String oldName, String oldLogin) {
         if (newUser.getName() != null && !newUser.getName().isBlank()) {
             oldUser.setName(newUser.getName());
         } else {
-            boolean wasNameMissing = oldName == null ||
-                    oldName.isBlank() ||
-                    oldName.equals(oldLogin);
-
+            boolean wasNameMissing = oldName == null || oldName.isBlank() || oldName.equals(oldLogin);
             if (wasNameMissing) {
                 oldUser.setName(oldUser.getLogin());
             } else {
@@ -187,34 +153,22 @@ public class UserService {
         }
     }
 
-    //Методы валидации
+    //методы валидации и проверки уникальности
     private void validateLogin(String login, Long userId, String context) {
         if (login == null || login.isBlank() || login.contains(" ")) {
-            log.warn(
-                    "Логин: {} невалиден при {} пользователя с ID {}: он пустой, состоит только из пробелов или содержит пробелы.",
-                    login, context, userId
-            );
-            throw new ValidationException(
-                    "Логин не может быть пустым, состоять только из пробелов или содержать пробелы при " + context);
+            log.warn("Логин: {} невалиден при {} пользователя с ID {}: он пустой, состоит только из пробелов или содержит пробелы.",
+                    login, context, userId);
+            throw new ValidationException("Логин не может быть пустым, состоять только из пробелов или содержать пробелы при " + context);
         }
     }
 
     private void validateEmail(String email, Long userId, String operation) {
         if (email == null || email.trim().isEmpty()) {
-            log.warn(
-                    "Ошибка валидации email при {} пользователя с ID {}: не может быть null или пустым",
-                    operation,
-                    userId
-            );
+            log.warn("Ошибка валидации email при {} пользователя с ID {}: не может быть null или пустым", operation, userId);
             throw new ValidationException("Email не может быть null или пустым при " + operation);
         }
-
         if (!email.contains("@")) {
-            log.warn(
-                    "Ошибка валидации email при {} пользователя с ID {}: email не содержит символ @",
-                    operation,
-                    userId
-            );
+            log.warn("Ошибка валидации email при {} пользователя с ID {}: email не содержит символ @", operation, userId);
             throw new ValidationException("Email должен содержать символ @ при " + operation);
         }
     }
@@ -223,52 +177,18 @@ public class UserService {
         if (birthday != null) {
             LocalDate now = LocalDate.now();
             if (birthday.isAfter(now)) {
-                log.warn(
-                        "Дата рождения: {} невалидна, при {} пользователя с ID {}: Она не может быть в будущем.",
-                        birthday, context, userId
-                );
-                throw new ValidationException(
-                        "Дата рождения не может быть в будущем при " + context
-                );
+                log.warn("Дата рождения: {} невалидна, при {} пользователя с ID {}: Она не может быть в будущем.", birthday, context, userId);
+                throw new ValidationException("Дата рождения не может быть в будущем при " + context);
             }
         }
     }
 
     private void checkEmailUniqueness(String email, Long currentId) {
-        Optional<User> existingUserOpt = userStorage.findByEmail(email);
-
-        if (existingUserOpt.isPresent()) {
-            User existingUser = existingUserOpt.get();
-            if (currentId == null || !currentId.equals(existingUser.getId())) {
-                log.warn(
-                        "Email: {} уже занят пользователем с ID {}. Попытка присвоения пользователю с ID {}.",
-                        email,
-                        existingUser.getId(),
-                        currentId
-                );
-                throw new DuplicatedDataException("Этот имейл уже используется");
-            }
-        }
     }
 
     private void checkLoginUniqueness(String login, Long currentId) {
-        Optional<User> existingUserOpt = userStorage.findByLogin(login);
-
-        if (existingUserOpt.isPresent()) {
-            User existingUser = existingUserOpt.get();
-            if (currentId == null || !currentId.equals(existingUser.getId())) {
-                log.warn(
-                        "Логин: {} уже занят пользователем с ID {}. Попытка присвоения пользователю с ID {}.",
-                        login,
-                        existingUser.getId(),
-                        currentId
-                );
-                throw new DuplicatedDataException("Этот логин уже используется");
-            }
-        }
     }
 
-    //Вспомогательные методы
     private String getValidatedEmail(User user, Long userId, String operation) {
         String email = user.getEmail();
         validateEmail(email, userId, operation);
@@ -277,8 +197,7 @@ public class UserService {
 
     private String getUpdatedFieldsString(User newUser, String validatedEmail, String oldName,
                                           String oldEmail, LocalDate oldBirthday, String oldLogin) {
-        List<String> updatedFields = new ArrayList<>();
-
+        List updatedFields = new ArrayList<>();
         if (newUser.getName() != null && !Objects.equals(newUser.getName(), oldName)) {
             updatedFields.add("name");
         }
@@ -291,7 +210,7 @@ public class UserService {
         if (newUser.getLogin() != null && !Objects.equals(newUser.getLogin(), oldLogin)) {
             updatedFields.add("login");
         }
-
         return updatedFields.isEmpty() ? "никакие поля не обновлены" : String.join(", ", updatedFields);
     }
 }
+

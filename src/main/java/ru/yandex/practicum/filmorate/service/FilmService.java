@@ -2,10 +2,12 @@ package ru.yandex.practicum.filmorate.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
@@ -17,18 +19,26 @@ import java.util.*;
 public class FilmService {
 
     private final FilmStorage filmStorage;
+
     private final UserStorage userStorage;
 
+    private final MpaService mpaService;
+
+    private final GenreService genreService;
 
     private static final Logger log = LoggerFactory.getLogger(FilmService.class);
 
     public static final LocalDate FIRST_FILM_DATE = LocalDate.of(1895, 12, 28);
 
-    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
+    public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
+                       @Qualifier("userDbStorage") UserStorage userStorage,
+                       MpaService mpaService,
+                       GenreService genreService) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
+        this.mpaService = mpaService;
+        this.genreService = genreService;
     }
-
 
     public Collection<Film> getAllFilms() {
         Collection<Film> allFilms = filmStorage.getAll();
@@ -49,8 +59,13 @@ public class FilmService {
         validateReleaseDate(film.getReleaseDate(), null, "создании");
         validateDuration(film.getDuration(), null, "создании");
 
-        Film savedFilm = filmStorage.save(film);
+        if (film.getMpa() == null) {
+            throw new NotFoundException("Неверный ID рейтинга MPA");
+        }
+        checkMpaExistence(film.getMpa().getId());
+        checkGenresExistence(film.getGenres());
 
+        Film savedFilm = filmStorage.save(film);
         log.info("Фильм '{}' успешно добавлен, ID: {}", film.getName(), film.getId());
         return savedFilm;
     }
@@ -68,27 +83,9 @@ public class FilmService {
         LocalDate oldReleaseDate = oldFilm.getReleaseDate();
         Integer oldDuration = oldFilm.getDuration();
 
-        if (newFilm.getName() != null) {
-            validateName(newFilm.getName(), newFilm.getId(), "обновлении");
-            oldFilm.setName(newFilm.getName());
-        }
+        updateFilmFields(newFilm, oldFilm);
 
-        if (newFilm.getDescription() != null) {
-            validateDescription(newFilm.getDescription(), newFilm.getId(), "обновлении");
-            oldFilm.setDescription(newFilm.getDescription());
-        }
-
-        if (newFilm.getReleaseDate() != null) {
-            validateReleaseDate(newFilm.getReleaseDate(), newFilm.getId(), "обновлении");
-            oldFilm.setReleaseDate(newFilm.getReleaseDate());
-        }
-
-        if (newFilm.getDuration() != null) {
-            validateDuration(newFilm.getDuration(), newFilm.getId(), "обновлении");
-            oldFilm.setDuration(newFilm.getDuration());
-        }
-
-        filmStorage.save(oldFilm);
+        filmStorage.update(oldFilm);
 
         String updatedFields = getUpdatedFieldsString(newFilm, oldName, oldDescription,
                 oldReleaseDate, oldDuration);
@@ -100,31 +97,19 @@ public class FilmService {
     }
 
     public void likeFilm(Long filmId, Long userId) {
-        Film film = getFilmOrThrow(filmId);
-        User user = getUserOrThrow(userId);
+        getFilmOrThrow(filmId);
+        getUserOrThrow(userId);
 
-        if (film.getLikedByUsers().contains(userId)) {
-            throw new ValidationException("Пользователь уже поставил лайк этому фильму");
-        }
-
-        film.getLikedByUsers().add(userId);
-        filmStorage.save(film);
-
-        log.info("Пользователь {} поставил лайк фильму '{}' (ID: {})", userId, film.getName(), filmId);
+        filmStorage.addLike(filmId, userId);
+        log.info("Пользователь {} поставил лайк фильму (ID: {})", userId, filmId);
     }
 
     public void unlikeFilm(Long filmId, Long userId) {
-        Film film = getFilmOrThrow(filmId);
-        User user = getUserOrThrow(userId);
+        getFilmOrThrow(filmId);
+        getUserOrThrow(userId);
 
-        if (!film.getLikedByUsers().contains(userId)) {
-            throw new ValidationException("Пользователь не поставил лайк этому фильму");
-        }
-
-        film.getLikedByUsers().remove(userId);
-        filmStorage.save(film);
-
-        log.info("Пользователь {} удалил лайк у фильма '{}' (ID: {})", userId, film.getName(), filmId);
+        filmStorage.removeLike(filmId, userId);
+        log.info("Пользователь {} удалил лайк у фильма (ID: {})", userId, filmId);
     }
 
     public Collection<Film> getTop10PopularFilms(int count) {
@@ -168,6 +153,55 @@ public class FilmService {
         return updatedFields.isEmpty() ? "никакие поля не обновлены" : String.join(", ", updatedFields);
     }
 
+    private void updateFilmFields(Film newFilm, Film oldFilm) {
+        if (newFilm.getName() != null) {
+            validateName(newFilm.getName(), newFilm.getId(), "обновлении");
+            oldFilm.setName(newFilm.getName());
+        }
+
+        if (newFilm.getDescription() != null) {
+            validateDescription(newFilm.getDescription(), newFilm.getId(), "обновлении");
+            oldFilm.setDescription(newFilm.getDescription());
+        }
+
+        if (newFilm.getReleaseDate() != null) {
+            validateReleaseDate(newFilm.getReleaseDate(), newFilm.getId(), "обновлении");
+            oldFilm.setReleaseDate(newFilm.getReleaseDate());
+        }
+
+        if (newFilm.getDuration() != null) {
+            validateDuration(newFilm.getDuration(), newFilm.getId(), "обновлении");
+            oldFilm.setDuration(newFilm.getDuration());
+        }
+
+        if (newFilm.getMpa() != null) {
+            checkMpaExistence(newFilm.getMpa().getId()); // Используем общий метод 👈
+            oldFilm.setMpa(newFilm.getMpa());
+        }
+
+        if (newFilm.getGenres() != null) {
+            checkGenresExistence(newFilm.getGenres()); // Используем общий метод 👈
+            oldFilm.setGenres(newFilm.getGenres());
+        } else {
+            oldFilm.setGenres(new java.util.LinkedHashSet<>());
+        }
+    }
+
+    private void checkMpaExistence(int mpaId) {
+        mpaService.getMpaById(mpaId);
+    }
+
+    private void checkGenresExistence(Collection<Genre> genres) {
+        if (genres != null) {
+            for (Genre genre : genres) {
+                if (genre == null) {
+                    throw new NotFoundException("Один из указанных жанров не существует.");
+                }
+                genreService.getGenreById(genre.getId());
+            }
+        }
+    }
+
     //методы валидации
     private void validateName(String name, Long filmId, String context) {
         if (name == null || name.isBlank()) {
@@ -193,17 +227,16 @@ public class FilmService {
 
     private void validateReleaseDate(LocalDate releaseDate, Long filmId, String context) {
         if (releaseDate == null) {
-            log.warn("Ошибка валидации Даты {} при {} фильма с ID {}: дата релиза не может быть пустой",
-                    releaseDate, context, filmId);
+            log.warn("Ошибка валидации Даты при {} фильма с ID {}: дата релиза не может быть пустой", context, filmId);
             throw new ValidationException("дата релиза фильма не может быть пустой");
-        } else {
-            if (releaseDate.isBefore(FIRST_FILM_DATE)) {
-                log.warn(
-                        "Ошибка валидации Даты {} при {} фильма с ID {}: дата релиза не должна быть раньше 28 декабря 1895 года",
-                        releaseDate, context, filmId
-                );
-                throw new ValidationException("дата релиза не должна быть раньше 28 декабря 1895 года");
-            }
+        }
+
+        if (releaseDate.isBefore(FIRST_FILM_DATE)) {
+            log.warn(
+                    "Ошибка валидации Даты {} при {} фильма с ID {}: дата релиза не должна быть раньше 28 декабря 1895 года",
+                    releaseDate, context, filmId
+            );
+            throw new ValidationException("дата релиза не должна быть раньше 28 декабря 1895 года");
         }
     }
 
